@@ -1,0 +1,5 @@
+C:/Users/aliso/STM32CubeIDE/workspace_2.0.0/Assignment 2/A_2MTRX2700/A2_Exercise_4/Drivers/CMSIS/Include/core_cm4.h:1688:22:__NVIC_EnableIRQ	2
+../Src/SPI.c:22:6:SPIInitialise	1
+../Src/SPI.c:53:6:SPIStartTransfer	2
+../Src/SPI.c:68:9:SPIBusy	1
+../Src/SPI.c:72:6:SPI1_IRQHandler	7

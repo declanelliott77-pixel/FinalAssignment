@@ -1,0 +1,3 @@
+../Src/gyro.c:23:6:gyroInitialisation	16	static
+../Src/gyro.c:44:6:gyroRequestRead	8	static
+../Src/gyro.c:57:9:gyroReadingUpdate	24	static

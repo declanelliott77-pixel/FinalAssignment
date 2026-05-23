@@ -1,0 +1,2 @@
+../Src/accelerometer.c:10:6:accelerometerInitialisation	16	static
+../Src/accelerometer.c:26:6:accelerometerReadingUpdate	56	static

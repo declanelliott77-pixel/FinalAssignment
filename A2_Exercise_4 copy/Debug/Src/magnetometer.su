@@ -1,0 +1,2 @@
+../Src/magnetometer.c:20:6:magnetometerInitialisation	8	static
+../Src/magnetometer.c:34:6:magnetometerReadingUpdate	32	static

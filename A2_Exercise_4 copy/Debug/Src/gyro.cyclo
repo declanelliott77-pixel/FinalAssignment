@@ -1,0 +1,3 @@
+../Src/gyro.c:23:6:gyroInitialisation	2
+../Src/gyro.c:44:6:gyroRequestRead	2
+../Src/gyro.c:57:9:gyroReadingUpdate	3

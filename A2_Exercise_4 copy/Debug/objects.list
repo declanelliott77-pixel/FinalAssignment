@@ -1,0 +1,6 @@
+"./Src/I2C.o"
+"./Src/Module4.o"
+"./Src/main.o"
+"./Src/syscalls.o"
+"./Src/sysmem.o"
+"./Startup/startup_stm32f303vctx.o"
