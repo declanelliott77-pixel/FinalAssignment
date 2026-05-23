@@ -59,8 +59,8 @@ all: main-build
 main-build: Exercise\ 4.elf secondary-outputs
 
 # Tool invocations
-Exercise\ 4.elf Exercise\ 4.map: $(OBJS) $(USER_OBJS) /Users/declanelliott/Documents/A2_Exercise_4\ copy/STM32F303VCTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "Exercise 4.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"/Users/declanelliott/Documents/A2_Exercise_4 copy/STM32F303VCTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Exercise 4.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+Exercise\ 4.elf Exercise\ 4.map: $(OBJS) $(USER_OBJS) /Users/declanelliott/Downloads/FinalAssignment/A2_Exercise_4\ copy/STM32F303VCTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "Exercise 4.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"/Users/declanelliott/Downloads/FinalAssignment/A2_Exercise_4 copy/STM32F303VCTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Exercise 4.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

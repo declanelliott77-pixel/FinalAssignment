@@ -1,6 +1,6 @@
-/Users/declanelliott/Documents/A2_Exercise_4 copy/Drivers/CMSIS/Include/core_cm4.h:1688:22:__NVIC_EnableIRQ	2
+/Users/declanelliott/Downloads/FinalAssignment/A2_Exercise_4 copy/Drivers/CMSIS/Include/core_cm4.h:1688:22:__NVIC_EnableIRQ	2
 ../Src/I2C.c:46:6:I2CInitialise	1
-../Src/I2C.c:87:6:I2CWrite	2
-../Src/I2C.c:110:6:I2CRead	2
+../Src/I2C.c:87:6:I2CWrite	4
+../Src/I2C.c:110:6:I2CRead	4
 ../Src/I2C.c:133:6:I2C1_EV_EXTI23_IRQHandler	11
 ../Src/I2C.c:202:9:I2CBusy	1

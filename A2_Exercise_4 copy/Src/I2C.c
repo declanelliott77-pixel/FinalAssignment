@@ -84,50 +84,50 @@ void I2CInitialise(void){
 
 }
 
-void I2CWrite(uint8_t slaveAddress, uint8_t memoryAddress, uint8_t data){
+void I2CWrite(uint8_t slaveAddress, uint8_t memoryAddress, uint8_t data)
+{
+    uint32_t timeout = 200000;   // Safety timeout (~few ms)
 
-	//consider if I2C is busy with another step
-	while (I2CState != IDLE_STEP);
+    // Wait for bus to be free with timeout
+    while (I2CState != IDLE_STEP && timeout > 0) {
+        timeout--;
+    }
 
-	//set ISR variables
-	interruptSlaveAddress = slaveAddress;
-	interruptSlaveRegister = memoryAddress;
-	interruptTxData = data;
-	I2CState = SEND_REGISTER_STEP;
+    if (timeout == 0) {
+        I2CState = IDLE_STEP;   // Force reset if stuck
+        return;
+    }
 
-	/* WRITE: tell slave which register want to write to
-	 * configuration of CR2 for start condition, address frame, stop condition
-	 * shift interruptSlaveAddress left by 1 for R/W bit (W = 0), sends slaveAddress on bus
-	 * I2C_CR2_NBYTES_Pos -> configures N bytes sent through left shift (2)
-	 * I2C_CR2_START -> start condition that SDA = LOW, SCL = HIGH
-	 * I2C_CR2_AUTOEND -> automatic stop condition, N bytes have been sent
-	 */
+    // Set up transmission
+    interruptSlaveAddress = slaveAddress;
+    interruptSlaveRegister = memoryAddress;
+    interruptTxData = data;
+    I2CState = SEND_REGISTER_STEP;
 
-	I2C1->CR2 = (interruptSlaveAddress << 1) | (2 << I2C_CR2_NBYTES_Pos) | I2C_CR2_START | I2C_CR2_AUTOEND;
-
+    I2C1->CR2 = (interruptSlaveAddress << 1) | (2 << I2C_CR2_NBYTES_Pos)
+                | I2C_CR2_START | I2C_CR2_AUTOEND;
 }
+void I2CRead(uint8_t slaveAddress, uint8_t memoryAddress, uint8_t* bufferPointer, uint16_t byteNumber)
+{
+    uint32_t timeout = 200000;
 
-void I2CRead(uint8_t slaveAddress, uint8_t memoryAddress, uint8_t* bufferPointer, uint16_t byteNumber){
+    while (I2CState != IDLE_STEP && timeout > 0) {
+        timeout--;
+    }
 
-	//consider if I2C is busy with another step
-	while (I2CState != IDLE_STEP);
+    if (timeout == 0) {
+        I2CState = IDLE_STEP;
+        return;
+    }
 
-	//set ISR variables
-	interruptSlaveAddress = slaveAddress;
-	interruptSlaveRegister = memoryAddress;
-	interruptRxBuffer = bufferPointer;
-	interruptRxBytes = byteNumber;
-	I2CState = READ_DATA_STEP;
+    interruptSlaveAddress = slaveAddress;
+    interruptSlaveRegister = memoryAddress;
+    interruptRxBuffer = bufferPointer;
+    interruptRxBytes = byteNumber;
+    I2CState = READ_DATA_STEP;
 
-	/* READ: tell slave which register want to read from
-	 * configuration of CR2 for start condition, address frame
-	 * shift interruptSlaveAddress left by 1 for R/W bit (R = 1), sends slaveAddress on bus
-	 * I2C_CR2_NBYTES_Pos -> configures N bytes sent through left shift (1)
-	 * I2C_CR2_START -> start condition that SDA = LOW, SCL = HIGH
-	 */
-
-	I2C1->CR2 = (interruptSlaveAddress << 1) | (1 << I2C_CR2_NBYTES_Pos) | I2C_CR2_START;
-
+    I2C1->CR2 = (interruptSlaveAddress << 1) | (1 << I2C_CR2_NBYTES_Pos)
+                | I2C_CR2_START;
 }
 
 void I2C1_EV_EXTI23_IRQHandler(void) {

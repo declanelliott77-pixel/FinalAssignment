@@ -1,1 +1,2 @@
-../Src/utils.c:14:6:timeStampInitialisation	4	static
+../Src/utils.c:4:6:delay_ms	24	static,ignoring_inline_asm
+../Src/utils.c:11:10:millis	4	static

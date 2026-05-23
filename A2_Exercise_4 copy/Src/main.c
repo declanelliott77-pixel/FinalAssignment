@@ -15,19 +15,30 @@
  *
  ******************************************************************************
  */
-
+// Replace your current main.c with this
 #include "stm32f303xc.h"
-#include "Room.h"   // <-- This should contain your initialise_board() prototype
+#include "Room.h"
 #include "I2C.h"
 
 int main(void)
 {
-    // Initialise everything: GPIO, ADC, timers, LCD, magnetometer, servos
-    initialise_board();
-    I2CInitialise();
-    // Main loop does nothing — all logic is interrupt-driven
+    initialise_board();     // This must set up everything
+
+    // Enable GPIOE clock
+    // === LED Setup on PE8 to PE15 ===
+        RCC->AHBENR |= RCC_AHBENR_GPIOEEN;           // Enable GPIOE clock (already done in initialise_board, but ok to repeat)
+
+        // Set PE8 to PE15 as outputs (bits 16 to 31 in MODER)
+        GPIOE->MODER &= ~(0xFFFFU << 16);            // Clear bits 16-31
+        GPIOE->MODER |=  (0x5555U << 16);            // 01 = General purpose output
+
+        // Turn all LEDs ON
+        GPIOE->ODR |= (0xFFU << 8);                  // Set PE8 to PE15 high
+    // Optional: Enable global interrupts if not already done
+
+
     while (1)
     {
-        __WFI();   // Wait For Interrupt (low power, safe)
+        __WFI();   // Good - low power
     }
 }

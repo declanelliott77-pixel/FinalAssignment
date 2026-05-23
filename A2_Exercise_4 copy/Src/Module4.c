@@ -48,57 +48,63 @@ char *maid_pages[2][2] = {
 };
 
 
-
 void initialise_board(void)
 {
-    // Enable clocks
+    // === Enable Clocks ===
     RCC->AHBENR  |= RCC_AHBENR_GPIOAEN | RCC_AHBENR_GPIOCEN | RCC_AHBENR_GPIOEEN;
-    RCC->AHBENR |= RCC_AHBENR_ADC12EN;
+    RCC->AHBENR  |= RCC_AHBENR_ADC12EN;
     RCC->APB1ENR |= RCC_APB1ENR_TIM2EN | RCC_APB1ENR_TIM3EN | RCC_APB1ENR_TIM4EN;
 
-    // === PA8 as output for servo signal ===
-    GPIOA->MODER &= ~(3 << 16);
-    GPIOA->MODER |=  (1 << 16);     // Output mode
-    GPIOA->MODER |= (1 << 18);   // PA9 as output
+    // === PA8 & PA9 as PWM (Alternate Function) for Servos ===
+    // This is critical - normal GPIO output won't work for servos
+    GPIOA->MODER   &= ~((3U << 16) | (3U << 18));   // Clear mode
+    GPIOA->MODER   |=  ((2U << 16) | (2U << 18));   // Alternate Function mode
+    GPIOA->AFR[1]  |=  ((1U << 0)  | (1U << 4));    // AF1 = TIM2 for PA8 and PA9
 
-    // === PC13 as button input (active low with pull-up) ===
-    GPIOC->MODER &= ~(3 << 26);     // Input mode
-    GPIOC->PUPDR |=  (1 << 26);     // Pull-up enabled
+    // === PC13 as Button Input (active low with pull-up) ===
+    GPIOC->MODER   &= ~(3U << 26);                  // Input mode
+    GPIOC->PUPDR   |=  (1U << 26);                  // Pull-up
 
-    // === ADC setup for joystick (PA0 & PA1) ===
-    ADC1->CR &= ~ADC_CR_ADEN;
-    ADC1->CR |= ADC_CR_ADEN;
-    while (!(ADC1->ISR & ADC_ISR_ADRDY));
+//    // === ADC Setup for Joystick (PA0 & PA1) ===
+//    ADC1->CR &= ~ADC_CR_ADEN;
+//    ADC1->CR |= ADC_CR_ADEN;
+//    while (!(ADC1->ISR & ADC_ISR_ADRDY));
 
-    // === Timer 2 initialisation (for 5s magnetometer checks) ===
-    timer_init2(20000);     // 2 seconds (assuming 0.1ms tick)
-
-    // === Timer 3 initialisation (for servo PWM interrupt) ===
-    timer_init3();
+    // === Timer Initialisations (keep your functions) ===
+    timer_init2(20000);     // Timer 2 - used for periodic magnetometer checks
+    timer_init3();          // Likely servo PWM or timing
     timer_init4();
-    // === LCD initialisation ===
-        lcd_init();
-        lcd_clear();
-        lcd_set_cursor(0,0);
-        lcd_print("Advance to the Final Room");
-    // === Magnetometer initialisation ===
-    magnetometerInitialisation();
 
-    // Start timers
-    timer_start();          // Start TIM2
+    // === LCD Initialisation ===
+//    lcd_init();
+//    lcd_clear();
+//    lcd_set_cursor(0, 0);
+//    lcd_print("Advance to the Final Room");
+    I2CInitialise();
+    __enable_irq();         // Make sure interrupts are enabled
+    magnetometerInitialisation();
+    // Start necessary timers
+
+
+
+    // === Magnetometer Initialisation ===
+
 
 }
+
 void turn_on_all_leds(void)
 {
     // Enable GPIOE clock
-    RCC->AHBENR |= RCC_AHBENR_GPIOEEN;
+	   // Enable GPIOE clock
+	    // === LED Setup on PE8 to PE15 ===
+	        RCC->AHBENR |= RCC_AHBENR_GPIOEEN;           // Enable GPIOE clock (already done in initialise_board, but ok to repeat)
 
-    // Set pins PE8–PE15 as outputs
-    GPIOE->MODER &= ~(0xFFFF << (8 * 2));   // Clear mode bits
-    GPIOE->MODER |=  (0x5555 << (8 * 2));   // Set to output mode
+	        // Set PE8 to PE15 as outputs (bits 16 to 31 in MODER)
+	        GPIOE->MODER &= ~(0xFFFFU << 16);            // Clear bits 16-31
+	        GPIOE->MODER |=  (0x5555U << 16);            // 01 = General purpose output
 
-    // Turn all LEDs ON
-    GPIOE->ODR |= (0xFF << 8);
+	        // Turn all LEDs ON
+	        GPIOE->ODR ^= (0xFFU << 8);                  // Set PE8 to PE15 high
 }
 
 void timer_init2(uint32_t point_at_target) { //Func to initiliase Timer 2
@@ -122,6 +128,7 @@ void timer_init2(uint32_t point_at_target) { //Func to initiliase Timer 2
     NVIC_EnableIRQ(TIM2_IRQn);
 
     __enable_irq();
+    TIM2->CR1  |= TIM_CR1_CEN;
 }
 
 void timer_init3(void) { //timer to initialise 3 for PWM pulses
@@ -144,9 +151,9 @@ void timer_init3(void) { //timer to initialise 3 for PWM pulses
 	    // enable interrupt and NVIC, then start
 	    TIM3->DIER |= TIM_DIER_UIE;                 // enable update interrupt
 	    NVIC_EnableIRQ(TIM3_IRQn);
-
-	    TIM3->CR1  |= TIM_CR1_CEN;                  // start counter
 	    __enable_irq();
+	    TIM3->CR1  |= TIM_CR1_CEN;                  // start counter
+
 	}
 void timer_init4(void) { //timer to initialise 3 for PWM pulses
 	    //intiialise timer 3
@@ -168,9 +175,9 @@ void timer_init4(void) { //timer to initialise 3 for PWM pulses
 		    // enable interrupt and NVIC, then start
 		    TIM4->DIER |= TIM_DIER_UIE;                 // enable update interrupt
 		    NVIC_EnableIRQ(TIM4_IRQn);
-
-		    TIM4->CR1  |= TIM_CR1_CEN;                  // start counter
 		    __enable_irq();
+		    TIM4->CR1  |= TIM_CR1_CEN;                  // start counter
+
 		}
 
 //Busy delays for tim 2 and 3
@@ -192,6 +199,7 @@ void TIM3_IRQHandler(void) {
     if (TIM3->SR & TIM_SR_UIF) {  // Check Update Interrupt Flag
         TIM3->SR &= ~TIM_SR_UIF;  // Clear the interrupt flag
         // Always read joystick to control Servo 1 (magnetometer positioning)
+
         joystick_control_servo();
         turn_on_all_leds();
         // Call the callback function directly (simpler approach)
@@ -205,7 +213,7 @@ void TIM2_IRQHandler(void)
     if (TIM2->SR & TIM_SR_UIF)
     {
         TIM2->SR &= ~TIM_SR_UIF;
-        turn_on_all_leds();
+
 
         // Check button + magnetometer for spring release (Servo 2)
         if (!(GPIOC->IDR & (1 << 13)))   // Button pressed
@@ -244,7 +252,7 @@ void TIM2_IRQHandler(void)
         else
         {
             spring_release_active = 0;
-            GPIOE->ODR &= ~0xF000;
+            GPIOE->ODR ^= (0xF << 12);      // Toggle PE12,13,14,15
         }
     }
 }
@@ -370,19 +378,16 @@ void drive_output_pin(void){
 //begin mangetometer code below
 
 //initialise magnetometer on I2C bus
-void magnetometerInitialisation(void){
+// Safer version - won't hang if nothing is connected
+void magnetometerInitialisation(void)
+{
+    // Add small delays instead of while(I2CBusy()) to prevent hanging
+    I2CWrite(MAG_ADDRESS, MAGNETOMETER_MODE_REGISTER, MAGNETOMETER_CONTINUOUS_MODE);
+    delay_ms(20);                    // <-- Changed from while(I2CBusy())
 
-	//set magnetometer to continuous mode, enables 10hz readings
-	I2CWrite(MAG_ADDRESS, MAGNETOMETER_MODE_REGISTER, MAGNETOMETER_CONTINUOUS_MODE);
-
-	while(I2CBusy());
-
-	//enable block data update to avoid any wrong data read
-	I2CWrite(MAG_ADDRESS, MAGNETOMETER_CONFIGURATION_REGISTER_C, MAGNETOMETER_BLOCK_DATA_UPDATE_ENABLE);
-
-	while(I2CBusy());
+    I2CWrite(MAG_ADDRESS, MAGNETOMETER_CONFIGURATION_REGISTER_C, MAGNETOMETER_BLOCK_DATA_UPDATE_ENABLE);
+    delay_ms(20);                    // <-- Changed from while(I2CBusy())
 }
-
 //takes raw data, timestamp, calculated heading and stores in struct
 void magnetometerReadingUpdate(magnetometerReading_t* magnetometerDataReading){
 
@@ -435,24 +440,29 @@ joystick_t read_joystick(void)
 {
     joystick_t joy = {0};
 
-    // Read X axis (PA0 = ADC1 Channel 1)
-    ADC1->SQR1 = (1 << 6);                 // Channel 1
+    // Make sure ADC is ready
+    if (!(ADC1->CR & ADC_CR_ADEN)) {
+        ADC1->CR |= ADC_CR_ADEN;
+        while (!(ADC1->ISR & ADC_ISR_ADRDY));
+    }
+
+    // Read X (PA0 - Channel 1)
+    ADC1->SQR1 = (1 << 6);
     ADC1->CR |= ADC_CR_ADSTART;
     while (!(ADC1->ISR & ADC_ISR_EOC));
     joy.x = ADC1->DR;
 
-    // Read Y axis (PA1 = ADC1 Channel 2)
-    ADC1->SQR1 = (2 << 6);                 // Channel 2
+    // Read Y (PA1 - Channel 2)
+    ADC1->SQR1 = (2 << 6);
     ADC1->CR |= ADC_CR_ADSTART;
     while (!(ADC1->ISR & ADC_ISR_EOC));
     joy.y = ADC1->DR;
 
-    // Read button (active low)
+    // Button
     joy.button_pressed = !(GPIOC->IDR & (1 << 13));
 
     return joy;
 }
-
 void joystick_control_servo(void)
 {
     joystick_t joy = read_joystick();
