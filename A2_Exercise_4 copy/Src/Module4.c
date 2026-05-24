@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include "stm32f303xc.h"
 #include "magnetometer.h"
 #include "I2C.h"
@@ -18,11 +19,13 @@
 static volatile uint32_t servo1_pulse_width = 1500;   // Magnetometer servo (PA8)
 static volatile uint32_t servo2_pulse_width = 1500;   // Spring release servo (PA9)
 static volatile uint8_t  spring_release_active = 0;
+
 static int page_index = 0;
 static int stable_counter = 0;
 static int last_direction = -1;   // 0=N,1=E,2=S,3=W
 void drive_output_pin(void);
 void ADC_Initialise(void);
+static void delay(int t);
 //LCD Messages
 
 // === COOK (NORTH) ===
@@ -55,8 +58,7 @@ void initialise_board(void)
     RCC->AHBENR  |= RCC_AHBENR_GPIOAEN | RCC_AHBENR_GPIOBEN | RCC_AHBENR_GPIOCEN | RCC_AHBENR_GPIOEEN;
     RCC->AHBENR  |= RCC_AHBENR_ADC12EN;
     RCC->APB1ENR |= RCC_APB1ENR_TIM2EN | RCC_APB1ENR_TIM3EN | RCC_APB1ENR_TIM4EN | RCC_APB1ENR_I2C1EN;
-    // === Joystick analog inputs (PA0 and PA1) ===
-    GPIOA->MODER |= (3U << 0) | (3U << 2);   // Set PA0 and PA1 to Analog mode
+
     // === Servo pins PA8 & PA9 ===
     GPIOA->MODER &= ~((3U << 16) | (3U << 18));
     GPIOA->MODER |=  ((2U << 16) | (2U << 18));
@@ -65,7 +67,7 @@ void initialise_board(void)
     // === Button PC13 ===
     GPIOC->MODER &= ~(3U << 26);
     GPIOC->PUPDR |=  (1U << 26);
-   joystick_init();
+
     // === I2C + Magnetometer ===
     I2CInitialise();
     __enable_irq();
@@ -78,11 +80,13 @@ void initialise_board(void)
          lcd_print("Advance to the");
          lcd_set_cursor(1, 0);
          lcd_print("Final Room");
-
+         delay(3000);
     // === Timers ===
     timer_init2(20000);
     timer_init3();
     timer_init4();
+
+    joystick_init();
 
 }
 void turn_on_all_leds(void)
@@ -193,10 +197,10 @@ void TIM3_IRQHandler(void) {
         TIM3->SR &= ~TIM_SR_UIF;  // Clear the interrupt flag
         // Always read joystick to control Servo 1 (magnetometer positioning)
 
-
+//
         joystick_control_servo();
         turn_on_all_leds();
-        // Call the callback function directly (simpler approach)
+       // Call the callback function directly (simpler approach)
         drive_output_pin();  // Trigger the callback function
     }
 
@@ -207,7 +211,6 @@ void TIM2_IRQHandler(void)
     if (TIM2->SR & TIM_SR_UIF)
     {
         TIM2->SR &= ~TIM_SR_UIF;
-
         // Check button + magnetometer for spring release (Servo 2)
         if (!(GPIOC->IDR & (1 << 13)))   // Button pressed
         {
@@ -242,11 +245,7 @@ void TIM2_IRQHandler(void)
                 }
             }
 
-        else
-        {
-            spring_release_active = 0;
-            GPIOE->ODR ^= (0xF << 12);      // Toggle PE12,13,14,15
-        }
+
     }
 }
 
@@ -256,78 +255,85 @@ void TIM4_IRQHandler(void)
     {
         TIM4->SR &= ~TIM_SR_UIF;
 
-        magnetometerReading_t mag;
-        magnetometerReadingUpdate(&mag);
-
-        int direction;
-
-        // Determine direction with a tolerance window
-        if (mag.heading >= 330 || mag.heading < 30)
-            direction = 0;   // Cook
-        else if (mag.heading >= 60 && mag.heading < 120)
-            direction = 1;   // Governess
-        else if (mag.heading >= 150 && mag.heading < 210)
-            direction = 2;   // Butler
-        else if (mag.heading >= 240 && mag.heading < 300)
-            direction = 3;   // Maid
-        else
-            direction = 4;  // Not pointing at any suspect
-
-        // Reset paging if direction changed
-        if (direction != last_direction)
-        {
-            page_index = 0;
-            stable_counter = 0;
-            last_direction = direction;
-        }
-
-
-            lcd_clear();
-
-            switch(direction)
-            {
-                case 0: // Cook
-                    lcd_set_cursor(0, 0);
-                    lcd_print(cook_pages[page_index][0]);
-                    lcd_set_cursor(1, 0);
-                    lcd_print(cook_pages[page_index][1]);
-                    break;
-
-                case 1: // Governess
-                    lcd_set_cursor(0, 0);
-                    lcd_print(gov_pages[page_index][0]);
-                    lcd_set_cursor(1, 0);
-                    lcd_print(gov_pages[page_index][1]);
-                    break;
-
-                case 2: // Butler
-                    lcd_set_cursor(0, 0);
-                    lcd_print(butler_pages[page_index][0]);
-                    lcd_set_cursor(1, 0);
-                    lcd_print(butler_pages[page_index][1]);
-                    break;
-
-                case 3: // Maid
-                    lcd_set_cursor(0, 0);
-                    lcd_print(maid_pages[page_index][0]);
-                    lcd_set_cursor(1, 0);
-                    lcd_print(maid_pages[page_index][1]);
-                    break;
-                case 4:
-               lcd_clear();
-              lcd_set_cursor(0, 0);
-                lcd_print("Jo is found dead");
-                lcd_set_cursor(1, 0);
-                lcd_print("in a shut room");
-            }
-
-
-            // Flip between page 0 and 1
-            page_index ^= 1;
-        }
+     static magnetometerReading_t mag;
+     magnetometerReadingUpdate(&mag);
+//      char bearing[16];
+//
+//      sprintf(bearing, "Heading:%3d", (int)mag.heading);
+//
+//      lcd_clear();
+//      lcd_set_cursor(0, 0);
+//      lcd_print(bearing);
+//
+//        int direction;
+//
+//        // Determine direction with a tolerance window
+//        if (mag.heading >= 330 || mag.heading < 30)
+//            direction = 0;   // Cook
+//        else if (mag.heading >= 60 && mag.heading < 120)
+//            direction = 1;   // Governess
+//        else if (mag.heading >= 150 && mag.heading < 210)
+//            direction = 2;   // Butler
+//        else if (mag.heading >= 240 && mag.heading < 300)
+//            direction = 3;   // Maid
+//        else
+//            direction = 4;  // Not pointing at any suspect
+//
+//        // Reset paging if direction changed
+//        if (direction != last_direction)
+//        {
+//            page_index = 0;
+//            stable_counter = 0;
+//            last_direction = direction;
+//        }
+//
+//
+//            lcd_clear();
+//
+//            switch(direction)
+//            {
+//                case 0: // Cook
+//                    lcd_set_cursor(0, 0);
+//                    lcd_print(cook_pages[page_index][0]);
+//                    lcd_set_cursor(1, 0);
+//                    lcd_print(cook_pages[page_index][1]);
+//                    break;
+//
+//                case 1: // Governess
+//                    lcd_set_cursor(0, 0);
+//                    lcd_print(gov_pages[page_index][0]);
+//                    lcd_set_cursor(1, 0);
+//                    lcd_print(gov_pages[page_index][1]);
+//                    break;
+//
+//                case 2: // Butler
+//                    lcd_set_cursor(0, 0);
+//                    lcd_print(butler_pages[page_index][0]);
+//                    lcd_set_cursor(1, 0);
+//                    lcd_print(butler_pages[page_index][1]);
+//                    break;
+//
+//                case 3: // Maid
+//                    lcd_set_cursor(0, 0);
+//                    lcd_print(maid_pages[page_index][0]);
+//                    lcd_set_cursor(1, 0);
+//                    lcd_print(maid_pages[page_index][1]);
+//                    break;
+//                case 4:
+//               lcd_clear();
+//              lcd_set_cursor(0, 0);
+//                lcd_print("Jo is found dead");
+//                lcd_set_cursor(1, 0);
+//                lcd_print("in a shut room");
+//            }
+//
+//
+//            // Flip between page 0 and 1
+//            page_index ^= 1;
+//        }
     }
 
-
+}
 
 // Timer module start
 void timer_start(void) {
@@ -349,7 +355,7 @@ void drive_output_pin(void){
 	if (spring_release_active)
 	    {
 	        GPIOA->ODR |= (1 << 9);
-	        delay_us(servo2_pulse_width / 100);   // e.g. 1000 or 2000 µs to release
+	        delay_us_tim3(servo2_pulse_width / 100);   // e.g. 1000 or 2000 µs to release
 	        GPIOA->ODR &= ~(1 << 9);
 	    }
 
@@ -374,87 +380,55 @@ void drive_output_pin(void){
 
 //initialise magnetometer on I2C bus
 // Safer version - won't hang if nothing is connected
-void magnetometerInitialisation(void)
-{
-    // Add small delays instead of while(I2CBusy()) to prevent hanging
-    I2CWrite(MAG_ADDRESS, MAGNETOMETER_MODE_REGISTER, MAGNETOMETER_CONTINUOUS_MODE);
-    delay_ms(20);                    // <-- Changed from while(I2CBusy())
-
-    I2CWrite(MAG_ADDRESS, MAGNETOMETER_CONFIGURATION_REGISTER_C, MAGNETOMETER_BLOCK_DATA_UPDATE_ENABLE);
-    delay_ms(20);                    // <-- Changed from while(I2CBusy())
-}
-//takes raw data, timestamp, calculated heading and stores in struct
-void magnetometerReadingUpdate(magnetometerReading_t* magnetometerDataReading){
-
-	//create a temporary buffer for data - X, Y, Z axis (2 bytes per)
-	static uint8_t buffer[6];
-
-	//read XYZ axis readings into buffer
-	I2CRead(MAG_ADDRESS, MAGNETOMETER_DATA_START | MAGNETOMETER_AUTO_INCREMENT, buffer, 6);
-
-	//wait until interrupt is triggered for STOPF
-	while(I2CBusy());
-
-	//record timestamp into struct
-	magnetometerDataReading->timestamp = TIM2->CNT;
-
-	//16 bits (2 bytes) per axis, split into axis_HIGH and axis_LOW byte
-	//move both axis_HIGH and axis_LOW into the struct from the buffer
-	magnetometerDataReading->xRaw = (int16_t)((buffer[1] << 8) | buffer[0]);
-	magnetometerDataReading->yRaw = (int16_t)((buffer[3] << 8) | buffer[2]);
-	magnetometerDataReading->zRaw = (int16_t)((buffer[5] << 8) | buffer[4]);
-
-	//calculate heading
-	//use x and y raw data, and use tan() to calculate angle
-
-	//heading will be in radians first
-	//calibration offset = (max + min)/2. then subtract offset from raw value
-
-	float yDegreeCalculation = (magnetometerDataReading->yRaw) + 12.5;
-	float xDegreeCalculation = (magnetometerDataReading->xRaw) + 46.5;
-
-	//angle is tan(y/x)
-	//atan checks if x = 0 and accounts so no math errors
-	float radians = atan2f(xDegreeCalculation, yDegreeCalculation);
-
-	//convert to degrees
-	float radiansToDegrees = radians * 180.0f/ M_PI;
-
-	//degrees cannot be -ve, therefore need to alter if -ve
-	if (radiansToDegrees < 0){
-		radiansToDegrees += 360.0;
-	}
-
-	//store heading in struct
-	magnetometerDataReading->heading = radiansToDegrees;
-}
 
 void joystick_control_servo(void)
 {
-    joystick_state_t joy;               // new struct from joystick.c
-    joystick_read_state(&joy);          // read the joystick (X, Y, button)
+    joystick_state_t joy;
+    joystick_read_state(&joy);
+//    static magnetometerReading_t mag;
+//        magnetometerReadingUpdate(&mag);
+//
+//        // === Display heading ===
+//        char buf[16];
+//        sprintf(buf, "Heading:%3d", (int)mag.heading);
+//        lcd_set_cursor(0, 0);
+//        lcd_print(buf);
+    static uint32_t last_move_time = 0;
+    uint32_t current_time = TIM4->CNT;          // safe timer
 
-    // === Map X-axis (0–4095) to servo pulse width (1000–2000 µs) ===
-    uint32_t new_pulse = 1000 + ((joy.x_raw * 1000UL) / 4095);
+    int16_t offset = (int16_t)joy.x_raw - 2048;
 
-    // Clamp to safe servo range
-    if (new_pulse < 1000) new_pulse = 1000;
-    if (new_pulse > 2000) new_pulse = 2000;
+    // Reset timer when joystick is moved
+    if (offset > 1000)
+    {
+        last_move_time = current_time;
+    }
 
-    servo1_pulse_width = new_pulse;
+    uint32_t time_since_move = current_time - last_move_time;
+    //lcd_clear();
+    //lcd_set_cursor(0, 0);
 
-    // === Optional: Show live X value on LCD (very useful for debugging) ===
-    char buf[16];
-    sprintf(buf, "X:%4d", joy.x_raw);
-    lcd_set_cursor(0, 0);
-    lcd_print(buf);
+    // === AUTO LEFT after 3 seconds of no movement ===
+    if (time_since_move > 20000)                // 2-4 seconds
+    {
+        if (servo1_pulse_width > 1000){
+            servo1_pulse_width -= 20;            // speed of auto-left (change 3 to 1-8)
 
-    // You can also show Y or button state if you want:
-    // sprintf(buf, "Y:%4d", joy.y_raw);
-    // lcd_set_cursor(1, 0);
-    // lcd_print(buf);
-}
+       // lcd_print("Auto Left   ");}
 
+    }
+    else
+    {
+        // Normal joystick control
+
+        if (offset > 1000) {
+        	servo1_pulse_width = 2500;
+        	//lcd_print("Right   ");
+        }
+        // Show direction clearly
+
+
+}}}
 //Screen From here on out
 static void delay(int t)
 

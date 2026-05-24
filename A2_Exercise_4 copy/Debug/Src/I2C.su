@@ -1,6 +1,6 @@
 /Users/declanelliott/Downloads/FinalAssignment/A2_Exercise_4 copy/Drivers/CMSIS/Include/core_cm4.h:1688:22:__NVIC_EnableIRQ	16	static
-../Src/I2C.c:46:6:I2CInitialise	8	static
-../Src/I2C.c:87:6:I2CWrite	24	static
-../Src/I2C.c:110:6:I2CRead	24	static
-../Src/I2C.c:133:6:I2C1_EV_EXTI23_IRQHandler	16	static
-../Src/I2C.c:202:9:I2CBusy	4	static
+../Src/I2C.c:41:6:I2CInitialise	8	static
+../Src/I2C.c:81:6:I2CWrite	16	static
+../Src/I2C.c:104:6:I2CRead	16	static
+../Src/I2C.c:127:6:I2C1_EV_EXTI23_IRQHandler	16	static
+../Src/I2C.c:196:9:I2CBusy	4	static

@@ -1,2 +1,2 @@
-../Src/magnetometer.c:20:6:magnetometerInitialisation	3
-../Src/magnetometer.c:34:6:magnetometerReadingUpdate	3
+../Src/magnetometer.c:17:6:magnetometerInitialisation	3
+../Src/magnetometer.c:31:6:magnetometerReadingUpdate	3
