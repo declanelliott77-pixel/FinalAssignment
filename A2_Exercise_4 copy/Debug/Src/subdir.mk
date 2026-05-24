@@ -7,6 +7,7 @@
 C_SRCS += \
 ../Src/I2C.c \
 ../Src/Module4.c \
+../Src/joystick.c \
 ../Src/main.c \
 ../Src/syscalls.c \
 ../Src/sysmem.c \
@@ -15,6 +16,7 @@ C_SRCS += \
 OBJS += \
 ./Src/I2C.o \
 ./Src/Module4.o \
+./Src/joystick.o \
 ./Src/main.o \
 ./Src/syscalls.o \
 ./Src/sysmem.o \
@@ -23,6 +25,7 @@ OBJS += \
 C_DEPS += \
 ./Src/I2C.d \
 ./Src/Module4.d \
+./Src/joystick.d \
 ./Src/main.d \
 ./Src/syscalls.d \
 ./Src/sysmem.d \
@@ -36,7 +39,7 @@ Src/%.o Src/%.su Src/%.cyclo: ../Src/%.c Src/subdir.mk
 clean: clean-Src
 
 clean-Src:
-	-$(RM) ./Src/I2C.cyclo ./Src/I2C.d ./Src/I2C.o ./Src/I2C.su ./Src/Module4.cyclo ./Src/Module4.d ./Src/Module4.o ./Src/Module4.su ./Src/main.cyclo ./Src/main.d ./Src/main.o ./Src/main.su ./Src/syscalls.cyclo ./Src/syscalls.d ./Src/syscalls.o ./Src/syscalls.su ./Src/sysmem.cyclo ./Src/sysmem.d ./Src/sysmem.o ./Src/sysmem.su ./Src/utils.cyclo ./Src/utils.d ./Src/utils.o ./Src/utils.su
+	-$(RM) ./Src/I2C.cyclo ./Src/I2C.d ./Src/I2C.o ./Src/I2C.su ./Src/Module4.cyclo ./Src/Module4.d ./Src/Module4.o ./Src/Module4.su ./Src/joystick.cyclo ./Src/joystick.d ./Src/joystick.o ./Src/joystick.su ./Src/main.cyclo ./Src/main.d ./Src/main.o ./Src/main.su ./Src/syscalls.cyclo ./Src/syscalls.d ./Src/syscalls.o ./Src/syscalls.su ./Src/sysmem.cyclo ./Src/sysmem.d ./Src/sysmem.o ./Src/sysmem.su ./Src/utils.cyclo ./Src/utils.d ./Src/utils.o ./Src/utils.su
 
 .PHONY: clean-Src
 

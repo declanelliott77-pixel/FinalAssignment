@@ -14,8 +14,7 @@
  */
 
 //header file below from STMF3disco-BSP
-#include "stm32f3xx.h"
-
+#include "stm32f303xc.h"
 #include <stdint.h>
 
 //initialises I2C-1 on pins PB6 (SCL) & PB7 (SDA), sets 100kHz I2C

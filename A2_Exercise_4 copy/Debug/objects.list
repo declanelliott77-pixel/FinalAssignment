@@ -1,5 +1,6 @@
 "./Src/I2C.o"
 "./Src/Module4.o"
+"./Src/joystick.o"
 "./Src/main.o"
 "./Src/syscalls.o"
 "./Src/sysmem.o"

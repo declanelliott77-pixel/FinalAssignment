@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 //header file below from STMF3disco-BSP
-#include "stm32f3xx.h"
+#include "stm32f303xc.h"
 
 //magnetometer address
 #define MAG_ADDRESS 0x1E

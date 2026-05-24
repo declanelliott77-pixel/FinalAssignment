@@ -1,0 +1,10 @@
+../Src/joystick.c:49:6:joystick_init	8	static
+../Src/joystick.c:55:13:joystick_gpio_init	4	static
+../Src/joystick.c:92:13:joystick_adc_init	8	static
+../Src/joystick.c:173:17:joystick_adc_read_channel	16	static
+../Src/joystick.c:204:10:joystick_read_x_raw	8	static
+../Src/joystick.c:209:10:joystick_read_y_raw	8	static
+../Src/joystick.c:214:9:joystick_read_x_offset	16	static
+../Src/joystick.c:227:9:joystick_read_y_offset	16	static
+../Src/joystick.c:240:9:joystick_button_pressed	4	static
+../Src/joystick.c:255:6:joystick_read_state	16	static

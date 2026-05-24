@@ -7,12 +7,13 @@
 
 #include "Room.h"
 #include <stdbool.h>
-
+#include <stdio.h>
 #include <stdint.h>
 #include "stm32f303xc.h"
 #include "magnetometer.h"
 #include "I2C.h"
 #include "utils.h"
+#include "joystick.h"
 #include <math.h>
 static volatile uint32_t servo1_pulse_width = 1500;   // Magnetometer servo (PA8)
 static volatile uint32_t servo2_pulse_width = 1500;   // Spring release servo (PA9)
@@ -21,6 +22,7 @@ static int page_index = 0;
 static int stable_counter = 0;
 static int last_direction = -1;   // 0=N,1=E,2=S,3=W
 void drive_output_pin(void);
+void ADC_Initialise(void);
 //LCD Messages
 
 // === COOK (NORTH) ===
@@ -47,51 +49,42 @@ char *maid_pages[2][2] = {
     { "him.When I saw",  "him I screamed" }
 };
 
-
 void initialise_board(void)
 {
     // === Enable Clocks ===
-    RCC->AHBENR  |= RCC_AHBENR_GPIOAEN | RCC_AHBENR_GPIOCEN | RCC_AHBENR_GPIOEEN;
+    RCC->AHBENR  |= RCC_AHBENR_GPIOAEN | RCC_AHBENR_GPIOBEN | RCC_AHBENR_GPIOCEN | RCC_AHBENR_GPIOEEN;
     RCC->AHBENR  |= RCC_AHBENR_ADC12EN;
-    RCC->APB1ENR |= RCC_APB1ENR_TIM2EN | RCC_APB1ENR_TIM3EN | RCC_APB1ENR_TIM4EN;
+    RCC->APB1ENR |= RCC_APB1ENR_TIM2EN | RCC_APB1ENR_TIM3EN | RCC_APB1ENR_TIM4EN | RCC_APB1ENR_I2C1EN;
+    // === Joystick analog inputs (PA0 and PA1) ===
+    GPIOA->MODER |= (3U << 0) | (3U << 2);   // Set PA0 and PA1 to Analog mode
+    // === Servo pins PA8 & PA9 ===
+    GPIOA->MODER &= ~((3U << 16) | (3U << 18));
+    GPIOA->MODER |=  ((2U << 16) | (2U << 18));
+    GPIOA->AFR[1] |= ((1U << 0) | (1U << 4));
 
-    // === PA8 & PA9 as PWM (Alternate Function) for Servos ===
-    // This is critical - normal GPIO output won't work for servos
-    GPIOA->MODER   &= ~((3U << 16) | (3U << 18));   // Clear mode
-    GPIOA->MODER   |=  ((2U << 16) | (2U << 18));   // Alternate Function mode
-    GPIOA->AFR[1]  |=  ((1U << 0)  | (1U << 4));    // AF1 = TIM2 for PA8 and PA9
+    // === Button PC13 ===
+    GPIOC->MODER &= ~(3U << 26);
+    GPIOC->PUPDR |=  (1U << 26);
+   joystick_init();
+    // === I2C + Magnetometer ===
+    I2CInitialise();
+    __enable_irq();
+    magnetometerInitialisation();
 
-    // === PC13 as Button Input (active low with pull-up) ===
-    GPIOC->MODER   &= ~(3U << 26);                  // Input mode
-    GPIOC->PUPDR   |=  (1U << 26);                  // Pull-up
+    // === LCD Initialisation (added back) ===
+    lcd_init();
+         lcd_clear();
+         lcd_set_cursor(0, 0);
+         lcd_print("Advance to the");
+         lcd_set_cursor(1, 0);
+         lcd_print("Final Room");
 
-//    // === ADC Setup for Joystick (PA0 & PA1) ===
-//    ADC1->CR &= ~ADC_CR_ADEN;
-//    ADC1->CR |= ADC_CR_ADEN;
-//    while (!(ADC1->ISR & ADC_ISR_ADRDY));
-
-    // === Timer Initialisations (keep your functions) ===
-    timer_init2(20000);     // Timer 2 - used for periodic magnetometer checks
-    timer_init3();          // Likely servo PWM or timing
+    // === Timers ===
+    timer_init2(20000);
+    timer_init3();
     timer_init4();
 
-    // === LCD Initialisation ===
-//    lcd_init();
-//    lcd_clear();
-//    lcd_set_cursor(0, 0);
-//    lcd_print("Advance to the Final Room");
-    I2CInitialise();
-    __enable_irq();         // Make sure interrupts are enabled
-    magnetometerInitialisation();
-    // Start necessary timers
-
-
-
-    // === Magnetometer Initialisation ===
-
-
 }
-
 void turn_on_all_leds(void)
 {
     // Enable GPIOE clock
@@ -200,6 +193,7 @@ void TIM3_IRQHandler(void) {
         TIM3->SR &= ~TIM_SR_UIF;  // Clear the interrupt flag
         // Always read joystick to control Servo 1 (magnetometer positioning)
 
+
         joystick_control_servo();
         turn_on_all_leds();
         // Call the callback function directly (simpler approach)
@@ -213,7 +207,6 @@ void TIM2_IRQHandler(void)
     if (TIM2->SR & TIM_SR_UIF)
     {
         TIM2->SR &= ~TIM_SR_UIF;
-
 
         // Check button + magnetometer for spring release (Servo 2)
         if (!(GPIOC->IDR & (1 << 13)))   // Button pressed
@@ -359,7 +352,9 @@ void drive_output_pin(void){
 	        delay_us(servo2_pulse_width / 100);   // e.g. 1000 or 2000 µs to release
 	        GPIOA->ODR &= ~(1 << 9);
 	    }
+
 	else{
+
 	//PA8, PA9, PA10 for up to 3 servos using TIM1 channels 1, 2, and 3. Choose which one you want
 	GPIOA->MODER |= (1 << 16);  // Set bit 16 for PA8 output mode
 	// Turn PA8 ON (set HIGH)
@@ -369,7 +364,7 @@ void drive_output_pin(void){
 	    delay_us_tim3(servo1_pulse_width / 100); //9 for full lockwise, 1.5ms delay 14, 2ms delay 19
 	    // Set PA8 low
 	    GPIOA->ODR &= ~(1 << 8);
-	    GPIOE->ODR ^= 0xF000;
+
 	}
 }
 
@@ -434,47 +429,31 @@ void magnetometerReadingUpdate(magnetometerReading_t* magnetometerDataReading){
 	magnetometerDataReading->heading = radiansToDegrees;
 }
 
-
-
-joystick_t read_joystick(void)
-{
-    joystick_t joy = {0};
-
-    // Make sure ADC is ready
-    if (!(ADC1->CR & ADC_CR_ADEN)) {
-        ADC1->CR |= ADC_CR_ADEN;
-        while (!(ADC1->ISR & ADC_ISR_ADRDY));
-    }
-
-    // Read X (PA0 - Channel 1)
-    ADC1->SQR1 = (1 << 6);
-    ADC1->CR |= ADC_CR_ADSTART;
-    while (!(ADC1->ISR & ADC_ISR_EOC));
-    joy.x = ADC1->DR;
-
-    // Read Y (PA1 - Channel 2)
-    ADC1->SQR1 = (2 << 6);
-    ADC1->CR |= ADC_CR_ADSTART;
-    while (!(ADC1->ISR & ADC_ISR_EOC));
-    joy.y = ADC1->DR;
-
-    // Button
-    joy.button_pressed = !(GPIOC->IDR & (1 << 13));
-
-    return joy;
-}
 void joystick_control_servo(void)
 {
-    joystick_t joy = read_joystick();
+    joystick_state_t joy;               // new struct from joystick.c
+    joystick_read_state(&joy);          // read the joystick (X, Y, button)
 
-    // Map X axis to Servo 1 (PA8)
-    servo1_pulse_width = 1000 + ((joy.x * 1000) / 4095);
+    // === Map X-axis (0–4095) to servo pulse width (1000–2000 µs) ===
+    uint32_t new_pulse = 1000 + ((joy.x_raw * 1000UL) / 4095);
 
-    // Clamp values
-    if (servo1_pulse_width < 1000) servo1_pulse_width = 1000;
-    if (servo1_pulse_width > 2000) servo1_pulse_width = 2000;
+    // Clamp to safe servo range
+    if (new_pulse < 1000) new_pulse = 1000;
+    if (new_pulse > 2000) new_pulse = 2000;
+
+    servo1_pulse_width = new_pulse;
+
+    // === Optional: Show live X value on LCD (very useful for debugging) ===
+    char buf[16];
+    sprintf(buf, "X:%4d", joy.x_raw);
+    lcd_set_cursor(0, 0);
+    lcd_print(buf);
+
+    // You can also show Y or button state if you want:
+    // sprintf(buf, "Y:%4d", joy.y_raw);
+    // lcd_set_cursor(1, 0);
+    // lcd_print(buf);
 }
-
 
 //Screen From here on out
 static void delay(int t)

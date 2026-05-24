@@ -21,22 +21,12 @@ void timer_start(void);
 void timer_start_3(void);
 void timer_stop(void);
 void timer_stop_3(void);
-
+void delay_us(uint32_t microseconds);
 // Magnetometer
 void magnetometerInitialisation(void);
 void magnetometerReadingUpdate(magnetometerReading_t* magnetometerDataReading);
 
-// Joystick
-typedef struct {
-    uint16_t x;
-    uint16_t y;
-    uint8_t button_pressed;
-} joystick_t;
-
-
-joystick_t read_joystick(void);
 void joystick_control_servo(void);
-
 // LCD
 void lcd_init(void);
 void lcd_clear(void);
